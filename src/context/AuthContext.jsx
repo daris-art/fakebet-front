@@ -1,6 +1,6 @@
 // 🔧 src/context/AuthContext.jsx - VERSION CORRIGÉE
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { loginUser, getUserProfile } from '../services/api';
+import { loginUser, getUserProfile, registerUser } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -62,6 +62,17 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const register = async (username, email, password) => {
+    try {
+      const response = await registerUser({ username, email, password });
+      console.log('✅ Inscription réussie:', response.data);
+      return response;
+    } catch (error) {
+      console.error('❌ Erreur d\'inscription:', error);
+      throw error;
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -75,6 +86,7 @@ export const AuthProvider = ({ children }) => {
     isLoading,
     isAuthenticated: !!user, // Important: basé sur l'existence de l'user
     login,
+    register, // ✅ Ajout de la fonction register
     logout,
   };
 
@@ -86,8 +98,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-
-
-
-
 

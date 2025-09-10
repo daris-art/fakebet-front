@@ -17,22 +17,12 @@ const LoadingSkeleton = ({ count = 3 }) => (
             <div className="h-7 w-20 bg-gray-600/50 rounded-full"></div>
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-700/50">
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-700/50 rounded w-full"></div>
-              <div className="h-3 bg-gray-600/50 rounded w-2/3"></div>
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-700/50 rounded w-full"></div>
-              <div className="h-3 bg-gray-600/50 rounded w-2/3"></div>
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-700/50 rounded w-full"></div>
-              <div className="h-3 bg-gray-600/50 rounded w-2/3"></div>
-            </div>
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-700/50 rounded w-full"></div>
-              <div className="h-3 bg-gray-600/50 rounded w-2/3"></div>
-            </div>
+            {Array.from({ length: 4 }, (_, j) => (
+              <div key={j} className="space-y-2">
+                <div className="h-4 bg-gray-700/50 rounded w-full"></div>
+                <div className="h-3 bg-gray-600/50 rounded w-2/3"></div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -125,13 +115,16 @@ const BetCard = ({ bet, index }) => {
       case "home_win": return "Victoire domicile";
       case "away_win": return "Victoire extérieur"; 
       case "draw": return "Match nul";
-      default: return outcome;
+      default: return outcome || "Non spécifié";
     }
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return "Date inconnue";
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "Date invalide";
+      
       return date.toLocaleString('fr-FR', {
         day: '2-digit',
         month: 'short',
@@ -144,7 +137,29 @@ const BetCard = ({ bet, index }) => {
     }
   };
 
-  const statusInfo = getStatusInfo(bet.status);
+  const formatCurrency = (amount) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return "N/A";
+    }
+    return parseFloat(amount).toFixed(2);
+  };
+
+  // Sécuriser les données du pari
+  const safeBet = {
+    id: bet?.id || 'N/A',
+    fixture_id: bet?.fixture_id || 'N/A',
+    bet_amount: bet?.bet_amount || 0,
+    odds_at_bet: bet?.odds_at_bet || 1,
+    potential_payout: bet?.potential_payout || 0,
+    selected_outcome: bet?.selected_outcome || '',
+    status: bet?.status || 'pending',
+    bet_time: bet?.bet_time || bet?.created_at || null,
+    // Gestion des noms d'équipes
+    home_team_name: bet?.home_team_name || bet?.fixture?.home_team_name || 'Équipe domicile',
+    away_team_name: bet?.away_team_name || bet?.fixture?.away_team_name || 'Équipe extérieur',
+  };
+
+  const statusInfo = getStatusInfo(safeBet.status);
 
   return (
     <div 
@@ -163,13 +178,13 @@ const BetCard = ({ bet, index }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h3 className="text-xl font-bold text-white mb-2">
-              Pari #{bet.id}
+              Pari #{safeBet.id}
             </h3>
             <div className="flex items-center gap-2 text-sm text-gray-400">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {formatDate(bet.bet_time)}
+              {formatDate(safeBet.bet_time)}
             </div>
           </div>
           
@@ -181,10 +196,13 @@ const BetCard = ({ bet, index }) => {
         {/* Détails du match */}
         <div className="mb-6 p-4 bg-gray-800/30 rounded-xl border border-gray-700/30">
           <div className="text-lg font-semibold text-gray-200 mb-2">
-            Match #{bet.fixture_id}
+            {safeBet.home_team_name} vs {safeBet.away_team_name}
+          </div>
+          <div className="text-sm text-gray-400 mb-2">
+            Match #{safeBet.fixture_id}
           </div>
           <div className="text-red-400 font-medium">
-            Choix : {getOutcomeText(bet.selected_outcome)}
+            Choix : {getOutcomeText(safeBet.selected_outcome)}
           </div>
         </div>
 
@@ -192,20 +210,20 @@ const BetCard = ({ bet, index }) => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm border-t border-gray-700/50 pt-4">
           <div className="flex flex-col items-center p-3 bg-gray-800/30 rounded-lg">
             <div className="text-xs text-gray-400 mb-1">💰 Montant misé</div>
-            <div className="text-lg font-bold text-white">{bet.bet_amount}€</div>
+            <div className="text-lg font-bold text-white">{formatCurrency(safeBet.bet_amount)}€</div>
           </div>
           
           <div className="flex flex-col items-center p-3 bg-gray-800/30 rounded-lg">
             <div className="text-xs text-gray-400 mb-1">📊 Cote</div>
             <div className="text-lg font-bold text-blue-400">
-              {bet.odds_at_bet ? parseFloat(bet.odds_at_bet).toFixed(2) : "N/A"}
+              {formatCurrency(safeBet.odds_at_bet)}
             </div>
           </div>
           
           <div className="flex flex-col items-center p-3 bg-gray-800/30 rounded-lg">
             <div className="text-xs text-gray-400 mb-1">🎯 Gain potentiel</div>
             <div className="text-lg font-bold text-green-400">
-              {bet.potential_payout ? parseFloat(bet.potential_payout).toFixed(2) : "N/A"}€
+              {formatCurrency(safeBet.potential_payout)}€
             </div>
           </div>
           
@@ -226,7 +244,7 @@ const MyBetsPage = () => {
   const [bets, setBets] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const fetchBets = useCallback(async () => {
     if (!isAuthenticated || !user) {
@@ -241,7 +259,10 @@ const MyBetsPage = () => {
     try {
       const response = await getBets();
       console.log("✅ Paris récupérés:", response.data);
-      setBets(response.data || []);
+      
+      // S'assurer que la réponse est un tableau
+      const betsData = Array.isArray(response.data) ? response.data : [];
+      setBets(betsData);
     } catch (err) {
       console.error("❌ Erreur chargement des paris:", err);
       
@@ -262,14 +283,41 @@ const MyBetsPage = () => {
 
   // Chargement initial
   useEffect(() => {
-    fetchBets();
-  }, [fetchBets]);
+    if (!authLoading) {
+      fetchBets();
+    }
+  }, [fetchBets, authLoading]);
+
+  // Calculer les statistiques de façon sécurisée
+  const getStats = () => {
+    const total = bets.length;
+    const pending = bets.filter(bet => bet?.status?.toLowerCase() === 'pending' || !bet?.status).length;
+    const won = bets.filter(bet => bet?.status?.toLowerCase() === 'won').length;
+    
+    return { total, pending, won };
+  };
+
+  const stats = getStats();
+
+  // Attendre la vérification de l'authentification
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-white flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-lg">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
 
   // États de chargement et d'erreur
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-white flex items-center justify-center">
-        <ErrorState error={error} onRetry={fetchBets} />
+      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-white">
+        <div className="max-w-5xl mx-auto px-6 py-12">
+          <ErrorState error={error} onRetry={fetchBets} />
+        </div>
       </div>
     );
   }
@@ -298,19 +346,15 @@ const MyBetsPage = () => {
             {/* Stats rapides */}
             <div className="flex justify-center gap-8 mt-8">
               <div className="text-center">
-                <div className="text-2xl font-bold text-white">{bets.length}</div>
+                <div className="text-2xl font-bold text-white">{stats.total}</div>
                 <div className="text-sm text-red-200/70">Paris total</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-400">
-                  {bets.filter(bet => bet.status === 'pending').length}
-                </div>
+                <div className="text-2xl font-bold text-yellow-400">{stats.pending}</div>
                 <div className="text-sm text-red-200/70">En attente</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-400">
-                  {bets.filter(bet => bet.status === 'won').length}
-                </div>
+                <div className="text-2xl font-bold text-green-400">{stats.won}</div>
                 <div className="text-sm text-red-200/70">Gagnés</div>
               </div>
             </div>
@@ -326,7 +370,7 @@ const MyBetsPage = () => {
           <EmptyState />
         ) : (
           <div className="space-y-8">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
               <h2 className="text-2xl font-bold text-white">
                 Historique des paris ({bets.length})
               </h2>
@@ -343,7 +387,7 @@ const MyBetsPage = () => {
             </div>
             
             {bets.map((bet, index) => (
-              <BetCard key={bet.id} bet={bet} index={index} />
+              <BetCard key={bet?.id || index} bet={bet} index={index} />
             ))}
           </div>
         )}
@@ -403,6 +447,13 @@ const MyBetsPage = () => {
         
         ::-webkit-scrollbar-thumb:hover {
           background: linear-gradient(to bottom, rgba(239, 68, 68, 0.8), rgba(220, 38, 38, 0.8));
+        }
+        
+        /* Amélioration responsive */
+        @media (max-width: 640px) {
+          .animate-fade-in-up {
+            animation-delay: 0ms !important;
+          }
         }
       `}</style>
     </div>

@@ -8,6 +8,7 @@ import {
 import { AuthProvider } from './context/AuthContext';
 import BettingPage from './pages/BettingPage';
 import LoginForm from './pages/LoginForm';
+import RegisterPage from './pages/RegisterPage';
 import MyBetsPage from './pages/MyBetsPage';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -21,6 +22,7 @@ function App() {
           {/* Pages publiques */}
           <Route path="/" element={<BettingPage />} />
           <Route path="/login" element={<LoginForm />} />
+          <Route path="/register" element={<RegisterPage />} />
 
           {/* Routes protégées */}
           <Route element={<ProtectedRoute />}>
