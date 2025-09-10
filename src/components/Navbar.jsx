@@ -41,7 +41,7 @@ const Navbar = () => {
               </NavLink>
               {isAuthenticated && (
                 <NavLink
-                  to="/my-bets"
+                  to="/mes-paris"
                   className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white rounded-lg transition-colors"
                   style={({ isActive }) => isActive ? activeLinkStyle : undefined}
                 >

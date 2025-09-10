@@ -1,14 +1,11 @@
-// App.jsx
-
+// 🔧 src/App.jsx - VERSION CORRIGÉE
 import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Navigate,
-  Outlet,
-  useLocation
+  Navigate
 } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import BettingPage from './pages/BettingPage';
 import LoginForm from './pages/LoginForm';
 import MyBetsPage from './pages/MyBetsPage';
@@ -17,18 +14,24 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
-    <AuthProvider>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<BettingPage />} />
-        <Route path="/login" element={<LoginForm />} />
+    <Router>
+      <AuthProvider>
+        <Navbar />
+        <Routes>
+          {/* Pages publiques */}
+          <Route path="/" element={<BettingPage />} />
+          <Route path="/login" element={<LoginForm />} />
 
-        {/* Protected routes here */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/mes-paris" element={<MyBetsPage />} />
-        </Route>
-      </Routes>
-    </AuthProvider>
+          {/* Routes protégées */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/mes-paris" element={<MyBetsPage />} />
+          </Route>
+
+          {/* Redirection par défaut */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 }
 

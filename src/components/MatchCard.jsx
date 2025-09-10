@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { placeBet } from "../services/api";
 
 const MatchCard = ({ fixture, userId }) => {
   const {
