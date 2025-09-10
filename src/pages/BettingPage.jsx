@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { getFixtures, getLeagues } from "../services/api";
 import MatchCard from "../components/MatchCard";
+import { useAuth } from '../context/AuthContext'; // 👈 Importer
 
 // 🎯 Constants
 const SORT_OPTIONS = {
@@ -374,6 +375,8 @@ const ErrorState = ({ error, onRetry }) => (
 
 // 🏠 Main Component
 const BettingPage = () => {
+  const { user, isAuthenticated } = useAuth(); 
+
   const { fixtures, leagues, isLoading, error, refetch } = useDataLoader();
   const {
     selectedLeagueId,
@@ -389,7 +392,10 @@ const BettingPage = () => {
   
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const stats = useStats(fixtures, filteredFixtures);
-  const userId = "user123"; // TODO: remplacer par l'ID réel de l'utilisateur connecté
+  
+
+  // 1. Créez une référence pour le conteneur des matchs
+  const mainContentRef = useRef(null);
 
   const selectedLeague = useMemo(() => 
     leagues.find(l => l.id === selectedLeagueId), 
@@ -414,45 +420,62 @@ const BettingPage = () => {
     );
   }
 
+  // 2. Utilisez un effet pour réinitialiser le défilement
+  useEffect(() => {
+    // Si la référence existe et qu'une ligue est sélectionnée, ou si les filtres sont réinitialisés
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth' // Pour une animation de défilement fluide
+      });
+    }
+  }, [selectedLeagueId, searchQuery, sortBy]); // Déclenchez l'effet sur les changements de filtre
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-white">
       {/* 🎯 Header Premium */}
-      <header className="relative bg-gradient-to-r from-red-800 via-red-700 to-red-600 shadow-2xl">
+      <header
+        className={`relative bg-gradient-to-r from-red-800 via-red-700 to-red-600 shadow-2xl transition-all duration-500 ease-in-out ${
+          sidebarCollapsed ? 'ml-20' : 'ml-96'
+        }`}
+      >
         <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative max-w-7xl mx-auto px-6 py-12">
+        <div className="px-6 py-6 w-full text-center">
           <div className="text-center">
-            <div className="inline-flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <svg className="w-6 h-6 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="inline-flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <svg className="w-5 h-5 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
-              <h1 className="text-4xl md:text-6xl font-black tracking-tight bg-gradient-to-r from-white to-red-100 bg-clip-text text-transparent">
+              <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-white to-red-100 bg-clip-text text-transparent">
                 Paris Sportifs
               </h1>
             </div>
-            <p className="text-red-100/80 text-lg md:text-xl font-medium max-w-2xl mx-auto leading-relaxed">
+            <p className="text-red-100/80 text-sm md:text-base font-medium max-w-xl mx-auto leading-relaxed">
               Découvrez les meilleures cotes, placez vos paris en temps réel et vivez l'émotion du sport
             </p>
-            
+
             {/* Stats rapides */}
-            <div className="flex justify-center gap-8 mt-8">
+            <div className="flex justify-center gap-6 mt-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-white">{stats.total}</div>
-                <div className="text-sm text-red-200/70">Matchs total</div>
+                <div className="text-xl font-bold text-white">{stats.total}</div>
+                <div className="text-xs text-red-200/70">Matchs total</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-400">{stats.live}</div>
-                <div className="text-sm text-red-200/70">En direct</div>
+                <div className="text-xl font-bold text-green-400">{stats.live}</div>
+                <div className="text-xs text-red-200/70">En direct</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-400">{stats.upcoming}</div>
-                <div className="text-sm text-red-200/70">À venir</div>
+                <div className="text-xl font-bold text-blue-400">{stats.upcoming}</div>
+                <div className="text-xs text-red-200/70">À venir</div>
               </div>
             </div>
           </div>
         </div>
       </header>
+
 
       <div className="flex">
         {/* 🏆 Sidebar Premium */}
@@ -532,7 +555,7 @@ const BettingPage = () => {
         </aside>
 
         {/* 📊 Zone principale */}
-        <main className={`flex-1 transition-all duration-500 ease-in-out ${sidebarCollapsed ? 'ml-20' : 'ml-96'}`}>
+        <main ref={mainContentRef} className={`flex-1 transition-all duration-500 ease-in-out ${sidebarCollapsed ? 'ml-20' : 'ml-96'}`}>
           {/* Barre de contrôles */}
           <div className="sticky top-0 z-40 bg-gradient-to-r from-[#1a1a1a]/95 to-[#0f0f0f]/95 backdrop-blur-xl border-b border-gray-800/50 shadow-lg">
             <div className="px-8 py-6">
@@ -629,7 +652,7 @@ const BettingPage = () => {
                       {/* Effet de glow au hover */}
                       <div className="absolute -inset-1 bg-gradient-to-r from-red-600/20 to-red-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
                       <div className="relative">
-                        <MatchCard fixture={fixture} userId={userId} />
+                        <MatchCard fixture={fixture} userId={isAuthenticated ? user.id : null} />
                       </div>
                     </div>
                   </div>

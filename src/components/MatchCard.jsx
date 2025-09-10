@@ -78,7 +78,6 @@ const MatchCard = ({ fixture, userId }) => {
     setMessage("");
 
     const payload = {
-      user_id: userId,
       fixture_id: fixtureId,
       bet_amount: parseFloat(betAmount),
       selected_outcome: selectedOutcome,
@@ -88,7 +87,7 @@ const MatchCard = ({ fixture, userId }) => {
 
     try {
       // Utiliser une URL relative si vous avez configuré le proxy Vite
-      await axios.post("/api/bets", payload);
+      await placeBet(payload);
       // OU utiliser l'URL complète si pas de proxy :
       // await axios.post("http://127.0.0.1:5000/api/bets", payload);
       
@@ -227,7 +226,7 @@ const MatchCard = ({ fixture, userId }) => {
         {/* Bouton parier */}
         <button
           onClick={handleBet}
-          disabled={!selectedOutcome || !betAmount || isLoading || parseFloat(betAmount) <= 0}
+          disabled={!selectedOutcome || !betAmount || isLoading || parseFloat(betAmount) <= 0 || !userId}
           className="w-full bg-gradient-to-r from-red-600 to-red-500 text-white py-4 rounded-xl font-bold hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
         >
           {isLoading ? (
