@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getBets } from "../services/api";
 import { useAuth } from '../context/AuthContext';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
-// 🎯 Composants utilitaires
+// 🎯 Helper Components
 const LoadingSkeleton = ({ count = 3 }) => (
   <div className="space-y-6">
     {Array.from({ length: count }, (_, i) => (
@@ -43,7 +45,7 @@ const EmptyState = () => (
     
     <h3 className="text-3xl font-bold text-gray-300 mb-4">Aucun pari trouvé</h3>
     <p className="text-gray-400 text-lg text-center max-w-lg leading-relaxed mb-8">
-      Il semble que vous n'avez pas encore placé de paris. Explorez les matchs disponibles pour commencer !
+      Il semble que vous n'ayez pas encore placé de paris. Explorez les matchs disponibles pour commencer !
     </p>
     
     <Link
@@ -75,32 +77,67 @@ const ErrorState = ({ error, onRetry }) => (
   </div>
 );
 
-const BetCard = ({ bet, index }) => {
+// ----------------- Améliorations UX -----------------
+// Ajout du composant pour afficher le score final si disponible
+const FinalScoreDisplay = ({ score }) => {
+  if (!score || score.toLowerCase().includes('n/a')) {
+    return <span className="text-sm font-semibold text-gray-400">Score non disponible</span>;
+  }
+
+  const [homeScore, awayScore] = score.split('-').map(Number);
+  
+  return (
+    <div className="flex items-center gap-2 text-white">
+      <span className="text-lg font-bold">{homeScore}</span>
+      <span className="text-gray-400 mx-1">-</span>
+      <span className="text-lg font-bold">{awayScore}</span>
+    </div>
+  );
+};
+
+// Logique pour déterminer si le pari est gagnant ou perdant
+const getOutcomeResult = (bet, fixture) => {
+  if (bet.status !== 'won' && bet.status !== 'lost') return 'pending';
+  if (!fixture || !fixture.final_score) return 'pending';
+
+  const [homeScore, awayScore] = fixture.final_score.split('-').map(Number);
+  
+  if (isNaN(homeScore) || isNaN(awayScore)) return 'pending';
+
+  let winningOutcome;
+  if (homeScore > awayScore) {
+    winningOutcome = 'home_win';
+  } else if (awayScore > homeScore) {
+    winningOutcome = 'away_win';
+  } else {
+    winningOutcome = 'draw';
+  }
+
+  return bet.selected_outcome === winningOutcome ? 'won' : 'lost';
+};
+
+const BetCard = React.memo(({ bet, index }) => {
   const getStatusInfo = (status) => {
     switch (status?.toLowerCase()) {
       case "won":
-      case "gagne":
         return {
           classes: "bg-green-500/20 text-green-400 border-green-500/30",
           text: "✅ Gagné",
           icon: "🏆"
         };
       case "lost":
-      case "perdu":
         return {
           classes: "bg-red-500/20 text-red-400 border-red-500/30",
           text: "❌ Perdu",
           icon: "💔"
         };
       case "cancelled":
-      case "annule":
         return {
           classes: "bg-gray-500/20 text-gray-400 border-gray-500/30",
           text: "🚫 Annulé",
           icon: "⏸️"
         };
       case "pending":
-      case "en_attente":
       default:
         return {
           classes: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
@@ -112,9 +149,9 @@ const BetCard = ({ bet, index }) => {
 
   const getOutcomeText = (outcome) => {
     switch (outcome) {
-      case "home_win": return "Victoire domicile";
-      case "away_win": return "Victoire extérieur"; 
-      case "draw": return "Match nul";
+      case "home_win": return "Victoire Domicile";
+      case "away_win": return "Victoire Extérieur"; 
+      case "draw": return "Match Nul";
       default: return outcome || "Non spécifié";
     }
   };
@@ -123,15 +160,7 @@ const BetCard = ({ bet, index }) => {
     if (!dateString) return "Date inconnue";
     try {
       const date = new Date(dateString);
-      if (isNaN(date.getTime())) return "Date invalide";
-      
-      return date.toLocaleString('fr-FR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      return format(date, 'dd MMM yyyy à HH:mm', { locale: fr });
     } catch {
       return "Date inconnue";
     }
@@ -143,23 +172,12 @@ const BetCard = ({ bet, index }) => {
     }
     return parseFloat(amount).toFixed(2);
   };
-
-  // Sécuriser les données du pari
-  const safeBet = {
-    id: bet?.id || 'N/A',
-    fixture_id: bet?.fixture_id || 'N/A',
-    bet_amount: bet?.bet_amount || 0,
-    odds_at_bet: bet?.odds_at_bet || 1,
-    potential_payout: bet?.potential_payout || 0,
-    selected_outcome: bet?.selected_outcome || '',
-    status: bet?.status || 'pending',
-    bet_time: bet?.bet_time || bet?.created_at || null,
-    // Gestion des noms d'équipes
-    home_team_name: bet?.home_team_name || bet?.fixture?.home_team_name || 'Équipe domicile',
-    away_team_name: bet?.away_team_name || bet?.fixture?.away_team_name || 'Équipe extérieur',
-  };
-
+  
+  const safeBet = bet;
   const statusInfo = getStatusInfo(safeBet.status);
+
+  // Vérifier si le match est terminé pour afficher le score final
+  const isCompleted = safeBet.status?.toLowerCase() !== 'pending' && safeBet.status?.toLowerCase() !== 'cancelled';
 
   return (
     <div 
@@ -195,9 +213,13 @@ const BetCard = ({ bet, index }) => {
 
         {/* Détails du match */}
         <div className="mb-6 p-4 bg-gray-800/30 rounded-xl border border-gray-700/30">
-          <div className="text-lg font-semibold text-gray-200 mb-2">
-            {safeBet.home_team_name} vs {safeBet.away_team_name}
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-lg font-semibold text-gray-200">
+              {safeBet.fixture.home_team_name} vs {safeBet.fixture.away_team_name}
+            </div>
+            {isCompleted && <FinalScoreDisplay score={safeBet.fixture.final_score} />}
           </div>
+          
           <div className="text-sm text-gray-400 mb-2">
             Match #{safeBet.fixture_id}
           </div>
@@ -237,22 +259,22 @@ const BetCard = ({ bet, index }) => {
       </div>
     </div>
   );
-};
+});
 
 // 🏠 Composant principal
 const MyBetsPage = () => {
   const [bets, setBets] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const fetchBets = useCallback(async () => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated) {
       console.log("⚠️ Utilisateur non authentifié, pas de chargement des paris");
       return;
     }
 
-    console.log("🔍 Chargement des paris pour l'utilisateur:", user.id);
+    console.log("🔍 Chargement des paris pour l'utilisateur...");
     setIsLoading(true);
     setError(null);
 
@@ -260,7 +282,6 @@ const MyBetsPage = () => {
       const response = await getBets();
       console.log("✅ Paris récupérés:", response.data);
       
-      // S'assurer que la réponse est un tableau
       const betsData = Array.isArray(response.data) ? response.data : [];
       setBets(betsData);
     } catch (err) {
@@ -279,44 +300,29 @@ const MyBetsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated]);
 
-  // Chargement initial
   useEffect(() => {
     if (!authLoading) {
       fetchBets();
     }
   }, [fetchBets, authLoading]);
 
-  // Calculer les statistiques de façon sécurisée
-  const getStats = () => {
+  // Utilisation de useMemo pour optimiser le calcul des statistiques
+  const stats = useMemo(() => {
     const total = bets.length;
     const pending = bets.filter(bet => bet?.status?.toLowerCase() === 'pending' || !bet?.status).length;
     const won = bets.filter(bet => bet?.status?.toLowerCase() === 'won').length;
     
     return { total, pending, won };
-  };
+  }, [bets]);
 
-  const stats = getStats();
-
-  // Attendre la vérification de l'authentification
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-white flex items-center justify-center">
         <div className="text-white text-center">
           <div className="animate-spin w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-lg">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // États de chargement et d'erreur
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-white">
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <ErrorState error={error} onRetry={fetchBets} />
+          <p className="text-lg">Chargement de l'utilisateur...</p>
         </div>
       </div>
     );
@@ -324,7 +330,6 @@ const MyBetsPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#121212] to-[#1a1a1a] text-white">
-      {/* 🎯 Header Premium */}
       <header className="relative bg-gradient-to-r from-red-800 via-red-700 to-red-600 shadow-2xl">
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative max-w-7xl mx-auto px-6 py-12">
@@ -343,7 +348,6 @@ const MyBetsPage = () => {
               Consultez l'historique de vos paris, suivez leur statut et gérez vos mises
             </p>
             
-            {/* Stats rapides */}
             <div className="flex justify-center gap-8 mt-8">
               <div className="text-center">
                 <div className="text-2xl font-bold text-white">{stats.total}</div>
@@ -362,10 +366,11 @@ const MyBetsPage = () => {
         </div>
       </header>
 
-      {/* 📊 Contenu principal */}
       <main className="max-w-5xl mx-auto px-6 py-12">
         {isLoading ? (
           <LoadingSkeleton count={4} />
+        ) : error ? (
+          <ErrorState error={error} onRetry={fetchBets} />
         ) : bets.length === 0 ? (
           <EmptyState />
         ) : (
@@ -393,7 +398,6 @@ const MyBetsPage = () => {
         )}
       </main>
       
-      {/* Styles CSS intégrés */}
       <style jsx>{`
         @keyframes fade-in-up {
           0% {
@@ -431,7 +435,6 @@ const MyBetsPage = () => {
           transform: translateZ(0);
         }
         
-        /* Scrollbar personnalisée */
         ::-webkit-scrollbar {
           width: 6px;
         }
@@ -449,7 +452,6 @@ const MyBetsPage = () => {
           background: linear-gradient(to bottom, rgba(239, 68, 68, 0.8), rgba(220, 38, 38, 0.8));
         }
         
-        /* Amélioration responsive */
         @media (max-width: 640px) {
           .animate-fade-in-up {
             animation-delay: 0ms !important;

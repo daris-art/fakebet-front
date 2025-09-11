@@ -43,3 +43,12 @@ export const getBets = () => api.get('/bets/');
 
 // 🔹 Enregistrer un nouveau pari
 export const placeBet = (betData) => api.post('/bets/', betData);
+
+export const getFixturesByLeague = (leagueId) => {
+  if (leagueId && leagueId !== 'all') {
+    return api.get(`/fixtures/league/${leagueId}`);
+  }
+  return api.get('/fixtures');
+};
+
+export default api;
