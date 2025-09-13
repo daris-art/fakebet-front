@@ -45,10 +45,8 @@ export const getBets = () => api.get('/bets/');
 export const placeBet = (betData) => api.post('/bets/', betData);
 
 export const getFixturesByLeague = (leagueId) => {
-  if (leagueId && leagueId !== 'all') {
-    return api.get(`/fixtures/league/${leagueId}`);
-  }
-  return api.get('/fixtures');
+  return api.get(`/fixtures/league/${leagueId}`);
 };
+
 
 export default api;
