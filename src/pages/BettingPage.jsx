@@ -1,350 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Search, Filter, Trophy, TrendingUp, Zap, Calendar, Clock, Globe, ArrowUp, Menu, X } from 'lucide-react';
+import { Search, Trophy, TrendingUp, Zap, Calendar, Clock, Globe, ArrowUp, Menu, X } from 'lucide-react';
+import { getFixtures, getLeagues, placeBet } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import MatchCard from '../components/MatchCard';
 
-// Configuration de l'API
-const API_BASE_URL = 'http://localhost:5000/api';
-
-// Services API pour communiquer avec le backend Flask
-const apiService = {
-  // Récupérer le token depuis le localStorage
-  getAuthToken: () => localStorage.getItem('authToken'),
-  
-  // Headers avec authentification
-  getAuthHeaders: () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-  }),
-
-  // Fixtures
-  getFixtures: async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/fixtures/`);
-      if (!response.ok) throw new Error('Erreur lors du chargement des matchs');
-      const fixtures = await response.json();
-      
-      // Adapter les données pour le frontend
-      return {
-        data: fixtures.map(fixture => ({
-          ...fixture,
-          league: {
-            id: fixture.league_id,
-            name: fixture.league_name || 'Ligue inconnue',
-            logo: fixture.league_logo || '/api/placeholder/32/32'
-          }
-        }))
-      };
-    } catch (error) {
-      console.error('Erreur API getFixtures:', error);
-      throw error;
-    }
-  },
-
-  // Leagues
-  getLeagues: async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/leagues/`);
-      if (!response.ok) throw new Error('Erreur lors du chargement des ligues');
-      const leagues = await response.json();
-      
-      return {
-        data: leagues.map(league => ({
-          ...league,
-          logo: league.logo || '/api/placeholder/32/32'
-        }))
-      };
-    } catch (error) {
-      console.error('Erreur API getLeagues:', error);
-      throw error;
-    }
-  },
-
-  // Créer un pari
-  createBet: async (betData) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bets/`, {
-        method: 'POST',
-        headers: apiService.getAuthHeaders(),
-        body: JSON.stringify(betData)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erreur lors de la création du pari');
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur API createBet:', error);
-      throw error;
-    }
-  },
-
-  // Récupérer les paris de l'utilisateur
-  getUserBets: async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bets/`, {
-        headers: apiService.getAuthHeaders()
-      });
-      
-      if (!response.ok) throw new Error('Erreur lors du chargement des paris');
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur API getUserBets:', error);
-      throw error;
-    }
-  },
-
-  // Profil utilisateur
-  getUserProfile: async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
-        headers: apiService.getAuthHeaders()
-      });
-      
-      if (!response.ok) throw new Error('Erreur lors du chargement du profil');
-      return await response.json();
-    } catch (error) {
-      console.error('Erreur API getUserProfile:', error);
-      throw error;
-    }
-  }
-};
-
-// Mock auth context - Remplacer par votre vrai contexte d'authentification
-const useAuth = () => {
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = apiService.getAuthToken();
-      if (token) {
-        try {
-          const userData = await apiService.getUserProfile();
-          setUser(userData);
-          setIsAuthenticated(true);
-        } catch (error) {
-          console.error('Erreur authentification:', error);
-          localStorage.removeItem('authToken');
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      }
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, []);
-
-  return { user, isAuthenticated, isLoading };
-};
-
-// Composant MatchCard adapté aux données du backend
-const MatchCard = ({ fixture, userId, onPlaceBet }) => {
-  const [isPlacingBet, setIsPlacingBet] = useState(false);
-  const [selectedOutcome, setSelectedOutcome] = useState(null);
-  const [betAmount, setBetAmount] = useState('');
-
-  // Parser les cotes depuis le champ odds (JSON string)
-  const parseOdds = useCallback(() => {
-    try {
-      if (fixture.odds && typeof fixture.odds === 'string') {
-        return JSON.parse(fixture.odds);
-      }
-      // Cotes par défaut si pas de données
-      return {
-        '1': '2.50',  // Victoire équipe domicile
-        'X': '3.20',  // Match nul
-        '2': '2.80'   // Victoire équipe extérieure
-      };
-    } catch (error) {
-      console.error('Erreur parsing odds:', error);
-      return { '1': '2.50', 'X': '3.20', '2': '2.80' };
-    }
-  }, [fixture.odds]);
-
-  const odds = parseOdds();
-
-  const handlePlaceBet = async (outcome) => {
-    if (!userId) {
-      alert('Vous devez être connecté pour placer un pari');
-      return;
-    }
-
-    setSelectedOutcome(outcome);
-    setIsPlacingBet(true);
-  };
-
-  const confirmBet = async () => {
-    if (!betAmount || parseFloat(betAmount) <= 0) {
-      alert('Veuillez saisir un montant valide');
-      return;
-    }
-
-    try {
-      const betData = {
-        fixture_id: fixture.id,
-        bet_amount: parseFloat(betAmount),
-        selected_outcome: selectedOutcome,
-        odds_at_bet: parseFloat(odds[selectedOutcome])
-      };
-
-      await apiService.createBet(betData);
-      alert('Pari placé avec succès !');
-      
-      setIsPlacingBet(false);
-      setSelectedOutcome(null);
-      setBetAmount('');
-      
-      if (onPlaceBet) onPlaceBet();
-    } catch (error) {
-      alert('Erreur : ' + error.message);
-    }
-  };
-
-  const getOutcomeLabel = (outcome) => {
-    switch (outcome) {
-      case '1': return fixture.home_team_name;
-      case 'X': return 'Match nul';
-      case '2': return fixture.away_team_name;
-      default: return outcome;
-    }
-  };
-
-  return (
-    <>
-      <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900/90 to-gray-800/90 border border-gray-700/50 backdrop-blur-sm hover:border-gray-600/50 transition-all duration-300">
-        {/* Live indicator */}
-        {fixture.status === 'live' && (
-          <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 bg-red-500/20 rounded-full border border-red-500/30">
-            <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse" />
-            <span className="text-xs font-medium text-red-300">EN DIRECT</span>
-          </div>
-        )}
-        
-        <div className="p-6">
-          {/* League info */}
-          <div className="flex items-center gap-3 mb-4">
-            <img 
-              src={fixture.league?.logo || '/api/placeholder/24/24'} 
-              alt={fixture.league?.name || 'Ligue'}
-              className="w-6 h-6 rounded object-cover" 
-            />
-            <span className="text-sm font-medium text-gray-300">{fixture.league?.name || 'Ligue inconnue'}</span>
-            <span className="text-xs text-gray-500">
-              {fixture.date ? new Date(fixture.date).toLocaleDateString('fr-FR') : 'Date inconnue'}
-            </span>
-          </div>
-          
-          {/* Teams */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex-1 text-right">
-              <h3 className="text-lg font-bold text-white mb-1">{fixture.home_team_name || 'Équipe 1'}</h3>
-            </div>
-            <div className="mx-6 flex items-center gap-3">
-              <div className="text-2xl font-bold text-gray-400">VS</div>
-            </div>
-            <div className="flex-1 text-left">
-              <h3 className="text-lg font-bold text-white mb-1">{fixture.away_team_name || 'Équipe 2'}</h3>
-            </div>
-          </div>
-          
-          {/* Score final si match terminé */}
-          {fixture.final_score && (
-            <div className="text-center mb-4 p-3 bg-gray-800/50 rounded-xl">
-              <span className="text-sm text-gray-400">Score final</span>
-              <div className="text-xl font-bold text-white">{fixture.final_score}</div>
-            </div>
-          )}
-          
-          {/* Betting options */}
-          <div className="grid grid-cols-3 gap-3">
-            {Object.entries(odds).map(([outcome, odd]) => (
-              <button
-                key={outcome}
-                onClick={() => handlePlaceBet(outcome)}
-                disabled={fixture.status === 'finished'}
-                className="p-3 rounded-xl bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/30 hover:border-gray-600/50 transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <div className="text-xs font-medium text-gray-400 mb-1">
-                  {outcome === '1' ? '1' : outcome === 'X' ? 'X' : '2'}
-                </div>
-                <div className="text-lg font-bold text-white group-hover:text-blue-400">
-                  {parseFloat(odd).toFixed(2)}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {outcome === '1' ? 'Dom.' : outcome === 'X' ? 'Nul' : 'Ext.'}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Modal de pari */}
-      {isPlacingBet && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gray-800 rounded-2xl p-6 max-w-md w-full border border-gray-700">
-            <h3 className="text-xl font-bold text-white mb-4">Placer un pari</h3>
-            
-            <div className="mb-4">
-              <p className="text-gray-300 mb-2">
-                <strong>{fixture.home_team_name}</strong> vs <strong>{fixture.away_team_name}</strong>
-              </p>
-              <p className="text-sm text-gray-400">
-                Pari sur: {getOutcomeLabel(selectedOutcome)} (Cote: {odds[selectedOutcome]})
-              </p>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Montant du pari (€)
-              </label>
-              <input
-                type="number"
-                value={betAmount}
-                onChange={(e) => setBetAmount(e.target.value)}
-                placeholder="10.00"
-                min="0.01"
-                step="0.01"
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-              {betAmount && (
-                <p className="text-sm text-gray-400 mt-2">
-                  Gain potentiel: <span className="text-green-400 font-bold">
-                    {(parseFloat(betAmount) * parseFloat(odds[selectedOutcome])).toFixed(2)}€
-                  </span>
-                </p>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setIsPlacingBet(false);
-                  setSelectedOutcome(null);
-                  setBetAmount('');
-                }}
-                className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={confirmBet}
-                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors"
-              >
-                Confirmer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-};
-
-// Custom hooks optimisés pour les vraies données
+// Custom hook pour le chargement des données
 const useDataLoader = () => {
   const [fixtures, setFixtures] = useState([]);
   const [leagues, setLeagues] = useState([]);
@@ -368,23 +28,36 @@ const useDataLoader = () => {
     
     try {
       const [fixturesRes, leaguesRes] = await Promise.all([
-        apiService.getFixtures(),
-        apiService.getLeagues()
+        getFixtures(),
+        getLeagues()
       ]);
       
       const fixturesData = fixturesRes.data || [];
       const leaguesData = leaguesRes.data || [];
+
+      // ✅ Mappage des données de ligue et de cotes pour les intégrer à chaque match
+      const formattedFixtures = fixturesData.map(fixture => {
+        const league = leaguesData.find(l => l.id === fixture.league_id);
+        return {
+          ...fixture,
+          league: {
+            id: league?.id || null,
+            name: fixture.league_name || 'Ligue inconnue',
+            logo: fixture.league_logo || '/api/placeholder/24/24'
+          }
+        };
+      });
       
       cacheRef.current = {
-        fixtures: fixturesData,
+        fixtures: formattedFixtures,
         leagues: leaguesData,
         timestamp: now
       };
       
-      setFixtures(fixturesData);
+      setFixtures(formattedFixtures);
       setLeagues(leaguesData);
-    } catch (error) {
-      console.error("Erreur lors du chargement des données:", error);
+    } catch (err) {
+      console.error("Erreur lors du chargement des données:", err);
       setError("Impossible de charger les données. Vérifiez votre connexion.");
     } finally {
       setIsLoading(false);
@@ -393,7 +66,7 @@ const useDataLoader = () => {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(() => loadData(true), 5 * 60 * 1000);
+    const interval = setInterval(() => loadData(true), 5 * 60 * 1000); // Rechargement toutes les 5 minutes
     return () => clearInterval(interval);
   }, [loadData]);
 
@@ -416,14 +89,11 @@ const useFilters = (fixtures) => {
 
     return fixtures
       .filter((fixture) => {
-        // Filtre par ligue
         if (filters.selectedLeagueId && 
-            fixture.league_id !== filters.selectedLeagueId && 
-            fixture.league?.id !== filters.selectedLeagueId) {
+            fixture.league_id !== filters.selectedLeagueId) {
           return false;
         }
 
-        // Filtre par recherche
         if (filters.searchQuery) {
           const query = filters.searchQuery.toLowerCase();
           const searchableText = [
@@ -437,7 +107,6 @@ const useFilters = (fixtures) => {
           }
         }
 
-        // Filtre par date
         if (fixture.date) {
           const fixtureDate = new Date(fixture.date);
           switch (filters.dateFilter) {
@@ -495,7 +164,6 @@ const useFilters = (fixtures) => {
   };
 };
 
-// Composants réutilisés (SearchBar, DateFilterTabs, etc.)
 const SearchBar = ({ value, onChange, className = "" }) => {
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef(null);
@@ -572,10 +240,10 @@ const DateFilterTabs = ({ value, onChange }) => {
   );
 };
 
-const LeagueList = ({ leagues, selectedId, onSelect, fixtures, collapsed }) => {
+const LeagueList = ({ leagues, selectedId, onSelect, fixtures }) => {
   const getLeagueStats = useCallback((leagueId) => {
     const leagueFixtures = fixtures.filter(f => 
-      f.league_id === leagueId || f.league?.id === leagueId
+      f.league_id === leagueId
     );
     return {
       total: leagueFixtures.length,
@@ -600,19 +268,15 @@ const LeagueList = ({ leagues, selectedId, onSelect, fixtures, collapsed }) => {
         }`}
       >
         <div className="flex items-center gap-3">
-          {!collapsed && (
-            <>
-              <div className="w-8 h-8 bg-gray-700/50 rounded-lg flex items-center justify-center">
-                <Globe className="w-4 h-4" />
-              </div>
-              <div className="flex-1">
-                <div className="font-medium">Toutes les ligues</div>
-                <div className="text-xs opacity-80">
-                  {allStats.total} matchs {allStats.live > 0 && `• ${allStats.live} live`}
-                </div>
-              </div>
-            </>
-          )}
+          <div className="w-8 h-8 bg-gray-700/50 rounded-lg flex items-center justify-center">
+            <Globe className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <div className="font-medium">Toutes les ligues</div>
+            <div className="text-xs opacity-80">
+              {allStats.total} matchs {allStats.live > 0 && `• ${allStats.live} live`}
+            </div>
+          </div>
         </div>
       </button>
 
@@ -641,14 +305,12 @@ const LeagueList = ({ leagues, selectedId, onSelect, fixtures, collapsed }) => {
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-gray-900" />
                 )}
               </div>
-              {!collapsed && (
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{league.name}</div>
-                  <div className="text-xs opacity-80">
-                    {stats.total} matchs {stats.live > 0 && `• ${stats.live} live`}
-                  </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-medium truncate">{league.name}</div>
+                <div className="text-xs opacity-80">
+                  {stats.total} matchs {stats.live > 0 && `• ${stats.live} live`}
                 </div>
-              )}
+              </div>
             </div>
           </button>
         );
@@ -718,7 +380,6 @@ const EmptyState = ({ hasFilters, onReset, message }) => (
   </div>
 );
 
-// Keep all hook calls at the top of the component
 const BettingPage = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { fixtures, leagues, isLoading, error, refetch } = useDataLoader();
@@ -732,12 +393,11 @@ const BettingPage = () => {
     resetFilters,
     hasActiveFilters
   } = useFilters(fixtures);
-
+  
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const mainRef = useRef(null);
 
-  // Stats calculées
   const stats = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -759,7 +419,6 @@ const BettingPage = () => {
     };
   }, [fixtures, filteredFixtures]);
 
-  // Gestion du scroll
   useEffect(() => {
     const handleScroll = () => {
       if (mainRef.current) {
@@ -779,8 +438,7 @@ const BettingPage = () => {
   };
 
   const handleBetPlaced = () => {
-    // Optionnel: recharger les données après un pari
-    // refetch();
+    refetch(true);
   };
 
   if (authLoading || isLoading) {
@@ -789,16 +447,7 @@ const BettingPage = () => {
         <LoadingSpinner />
       </div>
     );
-  }
-
-   // Now, use the state variables to perform conditional rendering
-  if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
+    }
 
   if (error) {
     return (
@@ -871,7 +520,6 @@ const BettingPage = () => {
                 selectedId={selectedLeagueId}
                 onSelect={(id) => updateFilter('selectedLeagueId', id)}
                 fixtures={fixtures}
-                collapsed={false}
               />
             </div>
           </div>

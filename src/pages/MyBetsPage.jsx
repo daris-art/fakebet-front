@@ -221,7 +221,7 @@ const BetCard = React.memo(({ bet, index }) => {
           </div>
           
           <div className="text-sm text-gray-400 mb-2">
-            Match #{safeBet.fixture_id}
+            Le {formatDate(safeBet.fixture.date)}
           </div>
           <div className="text-red-400 font-medium">
             Choix : {getOutcomeText(safeBet.selected_outcome)}
