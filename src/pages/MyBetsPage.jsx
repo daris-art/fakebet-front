@@ -188,11 +188,11 @@ const BetCard = React.memo(({ bet, index }) => {
       }}
     >
       {/* Effet de glow au hover */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-red-600/20 to-red-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+      <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600/20 to-purple-500/20 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
       
-      <div className="relative bg-gradient-to-r from-[#1a1a1a] to-[#1f1f1f] rounded-2xl p-6 shadow-xl border border-gray-700/50 backdrop-blur-sm transform transition-all duration-300 hover:scale-[1.02]">
+      <div className="relative bg-gradient-to-r from-[#1a1a1a] to-[#1f1f1f] rounded-2xl p-6 shadow-xl border border-gray-700/60 backdrop-blur-sm transform transition-all duration-300 hover:scale-[1.02]">
         
-        {/* Header avec statut */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
             <h3 className="text-xl font-bold text-white mb-2">
@@ -212,7 +212,7 @@ const BetCard = React.memo(({ bet, index }) => {
         </div>
 
         {/* Détails du match */}
-        <div className="mb-6 p-4 bg-gray-800/30 rounded-xl border border-gray-700/30">
+        <div className="mb-6 p-4 bg-[#222836] rounded-xl border border-gray-700/50">
           <div className="flex justify-between items-center mb-2">
             <div className="text-lg font-semibold text-gray-200">
               {safeBet.fixture.home_team_name} vs {safeBet.fixture.away_team_name}
@@ -221,35 +221,35 @@ const BetCard = React.memo(({ bet, index }) => {
           </div>
           
           <div className="text-sm text-gray-400 mb-2">
-            Le {formatDate(safeBet.fixture.date)}
+            Match du {formatDate(safeBet.fixture.date)}
           </div>
-          <div className="text-red-400 font-medium">
+          <div className="text-indigo-400 font-medium">
             Choix : {getOutcomeText(safeBet.selected_outcome)}
           </div>
         </div>
 
-        {/* Statistiques du pari */}
+        {/* Statistiques */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm border-t border-gray-700/50 pt-4">
-          <div className="flex flex-col items-center p-3 bg-gray-800/30 rounded-lg">
+          <div className="flex flex-col items-center p-3 bg-[#252525] rounded-lg">
             <div className="text-xs text-gray-400 mb-1">💰 Montant misé</div>
             <div className="text-lg font-bold text-white">{formatCurrency(safeBet.bet_amount)}€</div>
           </div>
           
-          <div className="flex flex-col items-center p-3 bg-gray-800/30 rounded-lg">
+          <div className="flex flex-col items-center p-3 bg-[#2a2f3d] rounded-lg">
             <div className="text-xs text-gray-400 mb-1">📊 Cote</div>
             <div className="text-lg font-bold text-blue-400">
               {formatCurrency(safeBet.odds_at_bet)}
             </div>
           </div>
           
-          <div className="flex flex-col items-center p-3 bg-gray-800/30 rounded-lg">
+          <div className="flex flex-col items-center p-3 bg-[#26322f] rounded-lg">
             <div className="text-xs text-gray-400 mb-1">🎯 Gain potentiel</div>
             <div className="text-lg font-bold text-green-400">
               {formatCurrency(safeBet.potential_payout)}€
             </div>
           </div>
           
-          <div className="flex flex-col items-center p-3 bg-gray-800/30 rounded-lg">
+          <div className="flex flex-col items-center p-3 bg-[#322b2b] rounded-lg">
             <div className="text-xs text-gray-400 mb-1">{statusInfo.icon} Statut</div>
             <div className="text-sm font-semibold text-center">
               {statusInfo.text.replace(/[✅❌🚫⏳]/g, '').trim()}
@@ -258,6 +258,7 @@ const BetCard = React.memo(({ bet, index }) => {
         </div>
       </div>
     </div>
+
   );
 });
 
