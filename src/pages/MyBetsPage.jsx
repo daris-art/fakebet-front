@@ -399,7 +399,7 @@ const MyBetsPage = () => {
         )}
       </main>
       
-      <style jsx>{`
+      <style>{`
         @keyframes fade-in-up {
           0% {
             opacity: 0;

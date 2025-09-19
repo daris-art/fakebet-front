@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Search, Trophy, TrendingUp, Zap, Calendar, Clock, Globe, ArrowUp, Menu, X } from 'lucide-react';
-import { getFixtures, getLeagues, placeBet } from '../services/api';
+import { getFixtures, getLeagues, placeBet, getFixturesByLeague } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import MatchCard from '../components/MatchCard';
 
@@ -398,7 +398,44 @@ const BettingPage = () => {
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [leagueMap, setLeagueMap] = useState({});
+
   const mainRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (mainRef.current) {
+        setShowScrollTop(mainRef.current.scrollTop > 400);
+      }
+    };
+
+    const element = mainRef.current;
+    if (element) {
+      element.addEventListener('scroll', handleScroll);
+      return () => element.removeEventListener('scroll', handleScroll);
+    }
+  }, []);
+
+  useEffect(() => {
+    const uniqueLeagueIds = [...new Set(fixtures.map(f => f.league_id))];
+    Promise.all(uniqueLeagueIds.map(id => getFixturesByLeague(id)))
+      .then(responses => {
+        const map = {};
+        responses.forEach((res, i) => {
+          const data = res.data;
+          if (data.length > 0) {
+            map[uniqueLeagueIds[i]] = {
+              name: data[0].league_name,
+              logo: data[0].league_logo
+            };
+          }
+        });
+        setLeagueMap(map);
+      })
+      .catch(err => {
+        console.error("Erreur chargement des ligues:", err);
+      });
+  }, [fixtures]);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -420,20 +457,6 @@ const BettingPage = () => {
       }).length,
     };
   }, [fixtures, filteredFixtures]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (mainRef.current) {
-        setShowScrollTop(mainRef.current.scrollTop > 400);
-      }
-    };
-
-    const element = mainRef.current;
-    if (element) {
-      element.addEventListener('scroll', handleScroll);
-      return () => element.removeEventListener('scroll', handleScroll);
-    }
-  }, []);
 
   const scrollToTop = () => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -585,9 +608,10 @@ const BettingPage = () => {
                       style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
                     >
                       <MatchCard 
-                        fixture={fixture} 
-                        userId={isAuthenticated ? user?.id : null}
-                        onPlaceBet={handleBetPlaced}
+                        fixture={fixture}
+                        userId={user?.id}
+                        league={leagueMap[fixture.league_id]}
+                        onBetPlaced={handleBetPlaced}
                       />
                     </div>
                   ))}

@@ -9,7 +9,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <App />
     <Toaster
-      position="bottom-right"
+      position="top-center"
       toastOptions={{
         style: {
           background: "#1f1f1f",
