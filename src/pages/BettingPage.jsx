@@ -285,7 +285,7 @@ const LeagueList = ({ leagues, selectedId, onSelect, fixtures }) => {
       {/* Ligues individuelles */}
       {leagues.map((league) => {
         const stats = getLeagueStats(league.id);
-        
+
         return (
           <button
             key={league.id}
@@ -296,27 +296,41 @@ const LeagueList = ({ leagues, selectedId, onSelect, fixtures }) => {
                 : 'bg-gray-800/50 text-gray-300 hover:bg-gray-700/50'
             }`}
           >
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <img 
-                  src={league.logo} 
-                  alt={league.name}
-                  className="w-8 h-8 rounded-lg object-cover"
-                />
-                {stats.live > 0 && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-gray-900" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{league.name}</div>
-                <div className="text-xs opacity-80">
-                  {stats.total} matchs {stats.live > 0 && `• ${stats.live} live`}
+            <div className="flex items-center justify-between gap-3">
+              {/* Logo + Texte */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative">
+                  <img 
+                    src={league.logo} 
+                    alt={league.name}
+                    className="w-8 h-8 rounded-lg object-cover"
+                  />
+                  {stats.live > 0 && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-gray-900" />
+                  )}
                 </div>
+                <div className="flex flex-col justify-center min-w-0">
+                  <div className="font-medium truncate">{league.name}</div>
+                  <div className="text-xs opacity-80 truncate">
+                    {stats.total} matchs {stats.live > 0 && `• ${stats.live} live`}
+                  </div>
+                </div>
+              </div>
+
+              {/* Drapeau à droite */}
+              <div className="flex items-center">
+                <img 
+                  src={league.flag} 
+                  alt=""
+                  title={league.country}
+                  className="w-5 h-4 rounded-sm object-cover"
+                />
               </div>
             </div>
           </button>
         );
       })}
+
     </div>
   );
 };
