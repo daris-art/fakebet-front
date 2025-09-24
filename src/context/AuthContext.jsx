@@ -1,4 +1,4 @@
-// 🔧 src/context/AuthContext.jsx - VERSION CORRIGÉE
+// 🔧 src/context/AuthContext.jsx - VERSION AVEC GESTION DE LA BALANCE
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { loginUser, getUserProfile, registerUser } from '../services/api';
 
@@ -73,6 +73,40 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 🆕 Fonction pour mettre à jour la balance après un pari
+  const updateUserBalance = (newBalance) => {
+    if (user) {
+      setUser(prevUser => ({
+        ...prevUser,
+        balance: newBalance
+      }));
+    }
+  };
+
+  // 🆕 Fonction pour recharger le profil utilisateur
+  const refreshUserProfile = async () => {
+    try {
+      const profileRes = await getUserProfile();
+      setUser(profileRes.data);
+      return profileRes.data;
+    } catch (error) {
+      console.error('❌ Erreur lors du rechargement du profil:', error);
+      throw error;
+    }
+  };
+
+  // 🆕 Fonction pour déduire un montant de la balance (optimiste)
+  const deductBalance = (amount) => {
+    if (user && user.balance >= amount) {
+      setUser(prevUser => ({
+        ...prevUser,
+        balance: prevUser.balance - amount
+      }));
+      return true;
+    }
+    return false;
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -84,10 +118,13 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     isLoading,
-    isAuthenticated: !!user, // Important: basé sur l'existence de l'user
+    isAuthenticated: !!user,
     login,
-    register, // ✅ Ajout de la fonction register
+    register,
     logout,
+    updateUserBalance,     // 🆕 Nouvelle fonction
+    refreshUserProfile,    // 🆕 Nouvelle fonction
+    deductBalance          // 🆕 Nouvelle fonction
   };
 
   return (
@@ -98,4 +135,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-

@@ -507,37 +507,9 @@ const BettingPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 border-b border-gray-800">
-        <div className="px-6 py-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-              <div>
-                <h1 className="text-4xl font-bold">Paris Sportifs</h1>
-                <p className="text-blue-200 mt-2">Découvrez les meilleures cotes en temps réel</p>
-                {isAuthenticated && (
-                  <p className="text-blue-300 text-sm mt-1">
-                    Connecté en tant que {user?.username}
-                  </p>
-                )}
-              </div>
-            </div>
-            <Zap className="w-12 h-12 text-blue-300" />
-          </div>
-          
-          <StatsGrid stats={stats} />
-        </div>
-      </header>
-
-      <div className="flex">
+      <div className="flex min-h-[calc(100vh-5rem)]">
         {/* Sidebar */}
-        <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-80 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 transition-transform duration-300 ${
+        <aside className={`fixed lg:static top-20 bottom-0 left-0 z-50 w-80 bg-gray-900/95 backdrop-blur-sm border-r border-gray-800 transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}>
           <div className="h-full flex flex-col">
@@ -576,8 +548,36 @@ const BettingPage = () => {
         <main className="flex-1 lg:ml-0">
           <div 
             ref={mainRef}
-            className="h-screen overflow-y-auto"
+            className="overflow-y-auto"
           >
+            {/* Header moved inside main so sidebar starts under Navbar */}
+            <header className="bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 border-b border-gray-800">
+              <div className="px-6 py-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setSidebarOpen(!sidebarOpen)}
+                      className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      <Menu className="w-6 h-6" />
+                    </button>
+                    <div>
+                      <h1 className="text-4xl font-bold">Paris Sportifs</h1>
+                      <p className="text-blue-200 mt-2">Découvrez les meilleures cotes en temps réel</p>
+                      {isAuthenticated && (
+                        <p className="text-blue-300 text-sm mt-1">
+                          Connecté en tant que {user?.username}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Zap className="w-12 h-12 text-blue-300" />
+                </div>
+                
+                <StatsGrid stats={stats} />
+              </div>
+            </header>
+
             {/* Controls */}
             <div className="sticky top-0 z-30 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800">
               <div className="p-6 space-y-6">

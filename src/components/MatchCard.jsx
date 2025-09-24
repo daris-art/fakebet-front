@@ -1,8 +1,11 @@
 import React, { useState, useEffect} from "react";
-
+import axios from "axios";
 import { placeBet, getFixturesByLeague } from "../services/api";
+import { useAuth } from "../context/AuthContext"; // 🆕 Import du contexte
 
-const MatchCard = ({fixture, userId, league, onBetPlaced }) => {
+const MatchCard = ({ fixture, userId }) => {
+  const { user, updateUserBalance, refreshUserProfile } = useAuth(); // 🆕 Utilisation du contexte
+  
   const {
     id: fixtureId,
     home_team_name,
@@ -16,13 +19,8 @@ const MatchCard = ({fixture, userId, league, onBetPlaced }) => {
   const [betAmount, setBetAmount] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [league, setLeague] = useState(null);
 
-  const confirmBet = async () => {
-    setShowConfirm(false);
-    await handleBet(); // on réutilise ta logique existante
-  };
-  
   if (!odds || !Object.keys(odds).length) {
     return (
       <div className="bg-gradient-to-r from-[#1a1a1a] to-[#1f1f1f] text-white shadow-lg rounded-2xl p-6 border border-gray-700/50 backdrop-blur-sm">
@@ -75,18 +73,17 @@ const MatchCard = ({fixture, userId, league, onBetPlaced }) => {
   const oddsValue =
     selectedOutcome && bookmaker ? bookmaker[selectedOutcome] : null;
 
-  const handleBetClick = () => {
+  const handleBet = async () => {
     if (!selectedOutcome || !betAmount || isNaN(betAmount) || parseFloat(betAmount) <= 0) {
       setMessage("⚠️ Choisis une issue et un montant valide.");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
-    setShowConfirm(true); // 👉 ouvre la modale de confirmation
-  };
 
-  const handleBet = async () => {
-    if (!selectedOutcome || !betAmount || isNaN(betAmount) || parseFloat(betAmount) <= 0) {
-      setMessage("⚠️ Choisis une issue et un montant valide.");
+    // 🆕 Vérification de la balance
+    const betAmountFloat = parseFloat(betAmount);
+    if (user?.balance < betAmountFloat) {
+      setMessage("❌ Solde insuffisant pour placer ce pari.");
       setTimeout(() => setMessage(""), 3000);
       return;
     }
@@ -96,34 +93,74 @@ const MatchCard = ({fixture, userId, league, onBetPlaced }) => {
 
     const payload = {
       fixture_id: fixtureId,
-      bet_amount: parseFloat(betAmount),
+      bet_amount: betAmountFloat,
       selected_outcome: selectedOutcome,
       odds_at_bet: oddsValue,
-      potential_payout: parseFloat(betAmount) * oddsValue,
+      potential_payout: betAmountFloat * oddsValue,
     };
 
     try {
-      // Utiliser une URL relative si vous avez configuré le proxy Vite
+      // 🆕 Déduction optimiste de la balance
+      updateUserBalance(user.balance - betAmountFloat);
+      
+      // Placer le pari
       await placeBet(payload);
-      // OU utiliser l'URL complète si pas de proxy :
-      // await axios.post("http://127.0.0.1:5000/api/bets", payload);
       
       setMessage("✅ Pari enregistré avec succès !");
-      onBetPlaced?.(); // déclenche le refetch dans BettingPage
       setBetAmount("");
       setSelectedOutcome(null);
       setTimeout(() => setMessage(""), 5000);
+
+      // 🆕 Rafraîchir le profil pour synchroniser avec le serveur
+      try {
+        await refreshUserProfile();
+      } catch (profileError) {
+        console.warn("⚠️ Erreur lors du rafraîchissement du profil:", profileError);
+        // On garde la balance optimiste mise à jour
+      }
+      
     } catch (err) {
       console.error("Erreur lors de l'enregistrement du pari:", err);
-      setMessage("❌ Erreur lors de l'enregistrement du pari. Veuillez réessayer.");
+      
+      // 🆕 En cas d'erreur, restaurer la balance
+      updateUserBalance(user.balance);
+      
+      // Message d'erreur plus spécifique
+      if (err.response?.data?.message) {
+        setMessage(`❌ ${err.response.data.message}`);
+      } else if (err.response?.status === 400) {
+        setMessage("❌ Solde insuffisant ou pari invalide.");
+      } else {
+        setMessage("❌ Erreur lors de l'enregistrement du pari. Veuillez réessayer.");
+      }
+      
       setTimeout(() => setMessage(""), 5000);
     } finally {
       setIsLoading(false);
     }
-    setShowConfirm(true); 
   };
 
   const potentialGain = betAmount && oddsValue ? (parseFloat(betAmount) * oddsValue).toFixed(2) : "0.00";
+
+  // Charger la ligue au montage du composant
+  useEffect(() => {
+    if (league_id) {
+      getFixturesByLeague(league_id)
+        .then((res) => {
+          // Comme l'API renvoie une liste de matchs de la ligue,
+          // on prend le premier pour récupérer league_name/logo
+          if (res.data && res.data.length > 0) {
+            setLeague({
+              name: res.data[0].league_name,
+              logo: res.data[0].league_logo,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Erreur chargement ligue:", err);
+        });
+    }
+  }, [league_id]);
 
   return (
     <div className="bg-gradient-to-r from-[#1a1a1a] to-[#1f1f1f] text-white shadow-xl rounded-2xl p-6 border border-gray-700/50 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
@@ -172,6 +209,18 @@ const MatchCard = ({fixture, userId, league, onBetPlaced }) => {
           </div>
         )}
       </div>
+
+      {/* 🆕 Affichage du solde utilisateur dans la carte */}
+      {user?.balance !== undefined && (
+        <div className="mb-4 p-3 bg-blue-600/10 border border-blue-500/30 rounded-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-blue-300">Votre solde :</span>
+            <span className="text-lg font-bold text-blue-400">
+              {typeof user.balance === 'number' ? user.balance.toFixed(2) : user.balance} €
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Boutons des cotes */}
       <div className="grid grid-cols-3 gap-3 mb-6">
@@ -249,9 +298,19 @@ const MatchCard = ({fixture, userId, league, onBetPlaced }) => {
             onChange={(e) => setBetAmount(e.target.value)}
             min="0"
             step="0.01"
+            max={user?.balance || 1000} // 🆕 Limite au solde disponible
             className="w-full bg-[#2a2a2a] border border-gray-600 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
             disabled={isLoading}
           />
+          {/* 🆕 Indicateur de solde insuffisant */}
+          {betAmount && parseFloat(betAmount) > (user?.balance || 0) && (
+            <div className="text-red-400 text-xs mt-1 flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.314 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              Solde insuffisant
+            </div>
+          )}
         </div>
 
         {/* Gain potentiel */}
@@ -266,42 +325,28 @@ const MatchCard = ({fixture, userId, league, onBetPlaced }) => {
 
         {/* Bouton parier */}
         <button
-          onClick={handleBetClick}
-          disabled={!selectedOutcome || !betAmount || isLoading || parseFloat(betAmount) <= 0 || !userId}
-          className="w-full bg-gradient-to-r from-red-600 to-red-500 text-white py-4 rounded-xl font-bold hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          onClick={handleBet}
+          disabled={
+            !selectedOutcome || 
+            !betAmount || 
+            isLoading || 
+            parseFloat(betAmount) <= 0 || 
+            !userId ||
+            parseFloat(betAmount) > (user?.balance || 0) // 🆕 Désactiver si solde insuffisant
+          }
+          className="w-full bg-gradient-to-r from-red-600 to-red-500 text-white py-4 rounded-xl font-bold hover:from-red-500 hover:to-red-400 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
         >
-          🎯 Placer le pari
+          {isLoading ? (
+            <>
+              <svg className="animate-spin w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Traitement...
+            </>
+          ) : (
+            "🎯 Placer le pari"
+          )}
         </button>
-
-        {showConfirm && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full text-white shadow-xl border border-gray-700">
-              <h2 className="text-lg font-bold mb-4">Confirmer votre pari</h2>
-              <p className="mb-2">Match : <span className="font-semibold">{home_team_name} vs {away_team_name}</span></p>
-              <p className="mb-2">Sélection : <span className="font-semibold">
-                {selectedOutcome === "home_win" ? home_team_name : selectedOutcome === "away_win" ? away_team_name : "Match nul"}
-              </span></p>
-              <p className="mb-2">Mise : <span className="font-semibold">{betAmount} €</span></p>
-              <p className="mb-2">Cote : <span className="font-semibold">{oddsValue?.toFixed(2)}</span></p>
-              <p className="mb-4">💰 Gain potentiel : <span className="text-green-400 font-bold">{potentialGain} €</span></p>
-
-              <div className="flex justify-end gap-3">
-                <button 
-                  onClick={() => setShowConfirm(false)} 
-                  className="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600"
-                >
-                  Annuler
-                </button>
-                <button 
-                  onClick={confirmBet} 
-                  className="px-4 py-2 bg-red-600 rounded-lg hover:bg-red-500 font-bold"
-                >
-                  Confirmer
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Messages */}

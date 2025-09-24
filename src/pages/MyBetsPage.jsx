@@ -194,7 +194,7 @@ const BetCard = React.memo(({ bet, index }) => {
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <div>
+          <div className="flex-1">
             <h3 className="text-xl font-bold text-white mb-2">
               Pari #{safeBet.id}
             </h3>
@@ -204,27 +204,91 @@ const BetCard = React.memo(({ bet, index }) => {
               </svg>
               {formatDate(safeBet.bet_time)}
             </div>
+            
           </div>
           
-          <div className={`px-4 py-2 rounded-full text-sm font-semibold border ${statusInfo.classes}`}>
+          <div className={`px-4 py-2 rounded-full text-sm font-semibold border ${statusInfo.classes} flex-shrink-0`}>
             {statusInfo.text}
           </div>
         </div>
 
-        {/* Détails du match */}
+        {/* 🆕 Détails du match fusionné avec la ligue */}
         <div className="mb-6 p-4 bg-[#222836] rounded-xl border border-gray-700/50">
-          <div className="flex justify-between items-center mb-2">
-            <div className="text-lg font-semibold text-gray-200">
-              {safeBet.fixture.home_team_name} vs {safeBet.fixture.away_team_name}
+          {/* Header du match avec ligue */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+            <div className="flex-1">
+              <div className="text-lg font-semibold text-gray-200 mb-2">
+                {safeBet.fixture.home_team_name} vs {safeBet.fixture.away_team_name}
+              </div>
+              
+              {/* Informations de la ligue intégrées */}
+              {safeBet.fixture?.league && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  {safeBet.fixture.league.logo ? (
+                    <img 
+                      src={safeBet.fixture.league.logo} 
+                      alt={`Logo ${safeBet.fixture.league.name}`}
+                      className="w-5 h-5 rounded-full object-cover border border-gray-600/50"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                      {safeBet.fixture.league.name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                  
+                  <span className="font-medium text-gray-300">
+                    {safeBet.fixture.league.name || 'Ligue inconnue'}
+                  </span>
+                  
+                  {/* Flag du pays ou nom du pays */}
+                  {safeBet.fixture.league.flag ? (
+                    <img 
+                      src={safeBet.fixture.league.flag}
+                      alt={`Drapeau ${safeBet.fixture.league.country}`}
+                      className="w-4 h-4 rounded object-cover border border-gray-600/30"
+                      loading="lazy"
+                    />
+                  ) : safeBet.fixture.league.country && (
+                    <span className="text-xs bg-gray-700/50 px-2 py-0.5 rounded">
+                      {safeBet.fixture.league.country}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
+            
             {isCompleted && <FinalScoreDisplay score={safeBet.fixture.final_score} />}
           </div>
           
-          <div className="text-sm text-gray-400 mb-2">
+          <div className="text-sm text-gray-400 mb-3 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
             Match du {formatDate(safeBet.fixture.date)}
           </div>
-          <div className="text-indigo-400 font-medium">
-            Choix : {getOutcomeText(safeBet.selected_outcome)}
+          
+          {/* 🆕 Résultat avec style amélioré */}
+          <div className="flex items-center gap-2">
+            <div className="bg-indigo-500/20 text-indigo-400 px-3 py-1.5 rounded-lg border border-indigo-500/30">
+              <span className="text-xs font-medium">Votre choix :</span>
+              <span className="ml-2 font-semibold">{getOutcomeText(safeBet.selected_outcome)}</span>
+            </div>
+            
+            {/* Indicateur de résultat si le match est terminé */}
+            {isCompleted && (
+              <div className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                safeBet.status?.toLowerCase() === 'won' 
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  : safeBet.status?.toLowerCase() === 'lost'
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                  : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+              }`}>
+                {safeBet.status?.toLowerCase() === 'won' ? '✓ Correct' : 
+                 safeBet.status?.toLowerCase() === 'lost' ? '✗ Incorrect' : 
+                 '– Annulé'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -232,7 +296,7 @@ const BetCard = React.memo(({ bet, index }) => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm border-t border-gray-700/50 pt-4">
           <div className="flex flex-col items-center p-3 bg-[#252525] rounded-lg">
             <div className="text-xs text-gray-400 mb-1">💰 Montant misé</div>
-            <div className="text-lg font-bold text-white">{formatCurrency(safeBet.bet_amount)}€</div>
+            <div className="text-lg font-bold text-white">{formatCurrency(safeBet.bet_amount)} 🪙</div>
           </div>
           
           <div className="flex flex-col items-center p-3 bg-[#2a2f3d] rounded-lg">
@@ -245,7 +309,7 @@ const BetCard = React.memo(({ bet, index }) => {
           <div className="flex flex-col items-center p-3 bg-[#26322f] rounded-lg">
             <div className="text-xs text-gray-400 mb-1">🎯 Gain potentiel</div>
             <div className="text-lg font-bold text-green-400">
-              {formatCurrency(safeBet.potential_payout)}€
+              {formatCurrency(safeBet.potential_payout)} 🪙
             </div>
           </div>
           
@@ -256,9 +320,25 @@ const BetCard = React.memo(({ bet, index }) => {
             </div>
           </div>
         </div>
+        
+        {/* 🆕 Section supplémentaire pour les gains réels si le pari est gagné */}
+        {safeBet.status?.toLowerCase() === 'won' && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-green-600/10 to-green-500/10 rounded-xl border border-green-500/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+                  <span className="text-green-400 text-sm">🏆</span>
+                </div>
+                <span className="text-green-300 font-semibold">Félicitations ! Vous avez gagné :</span>
+              </div>
+              <div className="text-2xl font-bold text-green-400">
+                +{formatCurrency(safeBet.potential_payout)} 🪙
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-
   );
 });
 
